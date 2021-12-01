@@ -1,0 +1,4 @@
+CUDA_VISIBLE_DEVICES=1 python /home/chaehyeong/CAES/long_text/train_seed.py --benchmark 'SCOTUS' --word_vector False --model lstm_attn_gy --epoch 30 --optim 'adam' --cuda --batch_size 2 --ed 300 --lr 0.1 --layer 1 --hd 300 --dropout 0.2
+CUDA_VISIBLE_DEVICES=1 python /home/chaehyeong/CAES/long_text/train_seed.py --benchmark 'MSD' --word_vector False --model lstm_attn_gy --epoch 30 --optim 'adam' --cuda --batch_size 8 --ed 300 --lr 0.1 --layer 1 --hd 300 --dropout 0.2
+CUDA_VISIBLE_DEVICES=2 python /home/chaehyeong/CAES/long_text/train_seed.py --benchmark 'MSD-Three' --word_vector False --model lstm_attn_gy --epoch 30 --optim 'adam' --cuda --batch_size 8 --ed 300 --lr 0.1 --layer 1 --hd 300 --dropout 0.2
+CUDA_VISIBLE_DEVICES=4 python /home/chaehyeong/CAES/long_text/train_seed.py --benchmark 'AAD' --word_vector False --model lstm_attn_gy --epoch 30 --optim 'adam' --cuda --batch_size 1 --ed 300 --lr 0.1 --layer 1 --hd 300 --dropout 0.2
