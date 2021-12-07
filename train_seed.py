@@ -64,6 +64,7 @@ def parse_args():
                         required=True,
                         help="Choose model")
     parser.add_argument('--benchmark', type=str, choices=['SCOTUS', 'MSD', 'MSD-Three', 'AAD'])
+    parser.add_argument('--rootpath', type=str, default='/home/minju/CAES/')
 
     parser_args, _ = parser.parse_known_args()
 
@@ -193,7 +194,7 @@ def main(args):
 
     device = torch.device('cuda' if torch.cuda.is_available() and args.cuda else 'cpu')
 
-    dataset = LoadDataset('/home/chaehyeong/CAES/data/'+args.benchmark+'/', args.benchmark, args.batch_size)
+    dataset = LoadDataset(args, args.rootpath + 'data/'+args.benchmark+'/', args.benchmark, args.batch_size)
     
     # Hyper parameters
     INPUT_DIM = len(dataset.vocab)

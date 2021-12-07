@@ -1,8 +1,7 @@
 import os
 
 import torch
-from torchtext.legacy.data import Field, LabelField, TabularDataset, Iterator, Dataset
-from torchtext.vocab import Vectors
+from torchtext.legacy.data import Dataset
 
 from icecream import ic
 
@@ -14,24 +13,38 @@ import pandas as pd
 import copy
 
 from torch.utils.data import Dataset, DataLoader, TensorDataset
-from torchtext.vocab import build_vocab_from_iterator
-from torchtext.legacy.data import get_tokenizer
+from torchtext.legacy.vocab import build_vocab_from_iterator
+from torchtext.data import get_tokenizer
 import spacy
 from collections import Counter
 from spacy.lang.en import English
 import pickle5 as pickle
+from tqdm import tqdm
 
 
 torch.manual_seed(252)
 torch.cuda.manual_seed(252)
 random.seed(252)
 
+class SimpleDatset(Dataset):
+    def __init__(self, text, label):
+        self.text = text
+        self.label = label
+    def __getitem__(self, item):
+        text_item = self.text[item]
+        label_item = self.label[item]
+        return text_item, label_item
+    def __len__(self):
+        return len(self.text)
 
 class LoadDataset(Dataset):
-    def __init__(self, file_path, benchmark, batch_size):
+    def __init__(self, args, file_path, benchmark, batch_size):
         self.file_path = file_path
         self.benchmark = benchmark
         self.batch_size = batch_size
+
+        ic(torch.__version__)
+        ic(torch.cuda.is_available())
 
         self.tokenizer = get_tokenizer('basic_english')
         # self.tokenizer = get_tokenizer('spacy', language='en')
@@ -109,11 +122,11 @@ class LoadDataset(Dataset):
         self.train_tokenized_text = []
         self.valid_tokenized_text = []
         self.test_tokenized_text = []
-        for text in self.train_rawtext:
+        for text in tqdm(self.train_rawtext):
             self.train_tokenized_text.append(self.tokenizer(text))
-        for text in self.valid_rawtext:
+        for text in tqdm(self.valid_rawtext):
             self.valid_tokenized_text.append(self.tokenizer(text))
-        for text in self.test_rawtext:
+        for text in tqdm(self.test_rawtext):
             self.test_tokenized_text.append(self.tokenizer(text))
 
         self.max_text_len = 0
@@ -134,29 +147,38 @@ class LoadDataset(Dataset):
 
         print("Building vocab...")
 
-        self.vocab = build_vocab_from_iterator(self.all_tokenized_text)
-        self.vocab_stoi = vars(self.vocab)['stoi']
-        self.vocab_size = len(self.vocab)
+        vocab_path = args.rootpath + f'pickle/vocab_{benchmark}.pickle'
+        if os.path.isfile(vocab_path):
+            print("Vocab is already built!")
+            with open(vocab_path, 'rb') as f:
+                self.vocab = pickle.load(f)
+                self.vocab_stoi = vars(self.vocab)['stoi']
+                self.vocab_size = len(self.vocab)
 
-        with open(f'/home/chaehyeong/CAES/long_text/pickle/vocab_{benchmark}.pickle', 'wb') as f:
-            pickle.dump(self.vocab, f, pickle.HIGHEST_PROTOCOL)
+        else:
+            self.vocab = build_vocab_from_iterator(self.all_tokenized_text)
+            self.vocab_stoi = vars(self.vocab)['stoi']
+            self.vocab_size = len(self.vocab)
+
+            with open(vocab_path, 'wb') as f:
+                pickle.dump(self.vocab, f, pickle.HIGHEST_PROTOCOL)
         
         print("Encoding...")
 
         self.train_tokenized_vecs = []
         self.valid_tokenized_vecs = []
         self.test_tokenized_vecs = []
-        for text in self.train_tokenized_text:
+        for text in tqdm(self.train_tokenized_text):
             vec_list = []
             for token in text:
                 vec_list.append(self.vocab_stoi[token])
             self.train_tokenized_vecs.append(vec_list)
-        for text in self.valid_tokenized_text:
+        for text in tqdm(self.valid_tokenized_text):
             vec_list = []
             for token in text:
                 vec_list.append(self.vocab_stoi[token])
             self.valid_tokenized_vecs.append(vec_list)
-        for text in self.test_tokenized_text:
+        for text in tqdm(self.test_tokenized_text):
             vec_list = []
             for token in text:
                 vec_list.append(self.vocab_stoi[token])
@@ -164,27 +186,61 @@ class LoadDataset(Dataset):
 
         print("Padding...")
 
-        self.train_text = []
-        self.valid_text = []
-        self.test_text = []
-        for i in range(len(self.train_tokenized_vecs)):
-            self.train_text.append(self.pad_tensor(self.train_tokenized_vecs[i], self.max_text_len, 1))
-        for i in range(len(self.valid_tokenized_vecs)):
-            self.valid_text.append(self.pad_tensor(self.valid_tokenized_vecs[i], self.max_text_len, 1))
-        for i in range(len(self.test_tokenized_vecs)):
-            self.test_text.append(self.pad_tensor(self.test_tokenized_vecs[i], self.max_text_len, 1))
+        # self.train_text = []
+        # self.valid_text = []
+        # self.test_text = []
+        # for i in tqdm(range(len(self.train_tokenized_vecs))):
+        #     self.train_text.append(self.pad_tensor(self.train_tokenized_vecs[i], self.max_text_len, 1))
+        # for i in tqdm(range(len(self.valid_tokenized_vecs))):
+        #     self.valid_text.append(self.pad_tensor(self.valid_tokenized_vecs[i], self.max_text_len, 1))
+        # for i in tqdm(range(len(self.test_tokenized_vecs))):
+        #     self.test_text.append(self.pad_tensor(self.test_tokenized_vecs[i], self.max_text_len, 1))
+
+        # self.tensor_dataset = {}
+        # self.tensor_dataset['train'] = TensorDataset(torch.tensor(self.train_text), torch.tensor(self.train_label))
+        # self.tensor_dataset['valid'] = TensorDataset(torch.tensor(self.valid_text), torch.tensor(self.valid_label))
+        # self.tensor_dataset['test'] = TensorDataset(torch.tensor(self.test_text), torch.tensor(self.test_label))
         
-        self.tensor_dataset = {}
-        self.tensor_dataset['train'] = TensorDataset(torch.tensor(self.train_text), torch.tensor(self.train_label))
-        self.tensor_dataset['valid'] = TensorDataset(torch.tensor(self.valid_text), torch.tensor(self.valid_label))
-        self.tensor_dataset['test'] = TensorDataset(torch.tensor(self.test_text), torch.tensor(self.test_label))
-        
+        # self.dataloader = {}
+        # self.dataloader['train'] = DataLoader(self.tensor_dataset['train'], batch_size=self.batch_size)
+        # self.dataloader['valid'] = DataLoader(self.tensor_dataset['valid'], batch_size=self.batch_size)
+        # self.dataloader['test'] = DataLoader(self.tensor_dataset['test'], batch_size=self.batch_size)
+
+        # self.train_text = SimpleDatset(torch.Tensor(self.train_tokenized_vecs), torch.Tensor(self.train_label))
+        # self.valid_text = SimpleDatset(torch.Tensor(self.valid_tokenized_vecs), torch.Tensor(self.train_label))
+        # self.test_text = SimpleDatset(torch.Tensor(self.test_tokenized_vecs), torch.Tensor(self.train_label))
+
+        self.train_text = SimpleDatset(self.train_tokenized_vecs, self.train_label)
+        self.valid_text = SimpleDatset(self.valid_tokenized_vecs, self.train_label)
+        self.test_text = SimpleDatset(self.test_tokenized_vecs, self.train_label)
+
         self.dataloader = {}
-        self.dataloader['train'] = DataLoader(self.tensor_dataset['train'], batch_size=self.batch_size)
-        self.dataloader['valid'] = DataLoader(self.tensor_dataset['valid'], batch_size=self.batch_size)
-        self.dataloader['test'] = DataLoader(self.tensor_dataset['test'], batch_size=self.batch_size)
+        self.dataloader['train'] = DataLoader(self.train_text, batch_size=self.batch_size, collate_fn=self.collate_fn_padd)
+        self.dataloader['valid'] = DataLoader(self.valid_text, batch_size=self.batch_size, collate_fn=self.collate_fn_padd)
+        self.dataloader['test'] = DataLoader(self.test_text, batch_size=self.batch_size, collate_fn=self.collate_fn_padd)
 
         print("Dataset Loaded!")
+
+    def collate_fn_padd(self, batch):
+        '''
+        Padds batch of variable length
+
+        note: it converts things ToTensor manually here since the ToTensor transform
+        assume it takes in images rather than arbitrary tensors.
+        '''
+        text, label = zip(*batch)
+        device = torch.device("cpu")
+
+        text_batch = []
+        lengths = torch.tensor([len(t) for t in text]).to(device)
+        max_len = max(lengths)
+        for t in text:
+            text_batch.append(self.pad_tensor(t, max_len, 1))
+
+        # mask = (text_batch != 1).to(device)
+        # batch = SimpleDatset(torch.Tensor(text_batch), torch.Tensor(label))
+
+        return torch.Tensor(text_batch), torch.Tensor(label)
 
     def yield_tokens(self, text_list):
         for text in text_list:

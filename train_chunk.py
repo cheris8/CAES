@@ -78,6 +78,7 @@ def parse_args():
                         help="The number of chunks")
     parser.add_argument('--metric', type=str, default='all', 
                         help="Choose Metric")
+    parser.add_argument('--rootpath', type=str, default='/home/minju/CAES/')
 
     parser_args, _ = parser.parse_known_args()
 
