@@ -13,7 +13,7 @@ import pandas as pd
 import copy
 
 from torch.utils.data import Dataset, DataLoader, TensorDataset
-from torchtext.legacy.vocab import build_vocab_from_iterator
+from torchtext.vocab import build_vocab_from_iterator
 from torchtext.data import get_tokenizer
 import spacy
 from collections import Counter
@@ -43,8 +43,8 @@ class LoadDataset(Dataset):
         self.benchmark = benchmark
         self.batch_size = batch_size
 
-        ic(torch.__version__)
-        ic(torch.cuda.is_available())
+        # ic(torch.__version__)
+        # ic(torch.cuda.is_available())
 
         self.tokenizer = get_tokenizer('basic_english')
         # self.tokenizer = get_tokenizer('spacy', language='en')

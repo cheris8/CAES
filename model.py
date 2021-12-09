@@ -260,7 +260,7 @@ class SELF_ATTEN_VEC(nn.Module):
                 
     def forward(self, input):
         batch_size = input.size(0)
-        
+        input = input.permute(1, 0)
         input = self.word_embeddings(input)
         # h_0 = Variable(torch.zeros(self._dim * self.n_layers, batch_size, self.hidden_dim).cuda())
         # c_0 = Variable(torch.zeros(self._dim * self.n_layers, batch_size, self.hidden_dim).cuda())

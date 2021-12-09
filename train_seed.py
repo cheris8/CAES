@@ -112,19 +112,19 @@ def precision(preds, y):
     preds = preds.cpu()
     y = y.cpu()
     argmax_preds = torch.argmax(preds, dim=1)
-    return precision_score(y, argmax_preds, average='macro')
+    return precision_score(y, argmax_preds, average='macro', zero_division=0)
 
 def recall(preds, y):
     preds = preds.cpu()
     y = y.cpu()
     argmax_preds = torch.argmax(preds, dim=1)
-    return recall_score(y, argmax_preds, average='macro')
+    return recall_score(y, argmax_preds, average='macro', zero_division=0)
 
 def f1score(preds, y):
     preds = preds.cpu()
     y = y.cpu()
     argmax_preds = torch.argmax(preds, dim=1)
-    return f1_score(y, argmax_preds, average='macro')
+    return f1_score(y, argmax_preds, average='macro', zero_division=0)
 
 
 def train(model, iterator, optimizer, criterion):
@@ -137,15 +137,16 @@ def train(model, iterator, optimizer, criterion):
     model.train()
     for batch in tqdm(iterator):
         text, label = batch
-        text = text.permute(1, 0)
-        pred = model(text.long().cuda()).squeeze(1)
-    
-        loss = criterion(pred, label.long().cuda())
+        text = text.long().cuda()
+        label = label.long().cuda()
+        # text = text.permute(1, 0)
+        pred = model(text).squeeze(1)
+        loss = criterion(pred, label)
 
-        acc = accuracy(pred, label.long().cuda())
-        prec = precision(pred, label.long().cuda())
-        rec = recall(pred, label.long().cuda())
-        f1 = f1score(pred, label.long().cuda())
+        acc = accuracy(pred, label)
+        prec = precision(pred, label)
+        rec = recall(pred, label)
+        f1 = f1score(pred, label)
 
         optimizer.zero_grad()
         loss.backward()
@@ -172,7 +173,6 @@ def evaluate(model, iterator, criterion):
         text, label = batch
         text = text.permute(1, 0)
         pred = model(text.long().cuda()).squeeze(1)
-
         loss = criterion(pred, label.long().cuda())
 
         acc = accuracy(pred, label.long().cuda())
@@ -191,7 +191,7 @@ def evaluate(model, iterator, criterion):
 
 
 def main(args):
-
+    warnings.filterwarnings('always')  # "error", "ignore", "always", "default", "module" or "once"
     device = torch.device('cuda' if torch.cuda.is_available() and args.cuda else 'cpu')
 
     dataset = LoadDataset(args, args.rootpath + 'data/'+args.benchmark+'/', args.benchmark, args.batch_size)
@@ -228,7 +228,12 @@ def main(args):
             INPUT_DIM, args.ed, args.hd, OUTPUT_DIM,
             n_layers=args.layer, use_bidirectional=bool(args.bidirectional),
             dropout=args.dropout).to(device)
-
+    
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
+        model = nn.DataParallel(model)
+        model.cuda()
     criterion = nn.CrossEntropyLoss(reduction='mean').to(device)
     
     if args.optim == 'sgd':
